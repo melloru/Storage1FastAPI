@@ -3,11 +3,11 @@ import uvicorn
 from fastapi import FastAPI
 
 
-main_app = FastAPI()
+web_app = FastAPI()
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:main_app",
+        "main:web_app",
         host="localhost",
         port=8000,
     )

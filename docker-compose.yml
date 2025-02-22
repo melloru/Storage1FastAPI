@@ -1,0 +1,10 @@
+services:
+  web_app:
+    build:
+      context: .
+    container_name: fastapi_app
+    command: poetry run uvicorn main:web_app --host 0.0.0.0 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/src/app
