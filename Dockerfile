@@ -4,8 +4,8 @@ RUN pip install poetry==1.8.3
 
 WORKDIR /src
 
-COPY pyproject.toml poetry.lock* /src/
+COPY pyproject.toml poetry.lock .
 
-RUN poetry install --no-root --no-dev
+RUN poetry config virtualenvs.create false && poetry install --no-interaction
 
-COPY app /src
+COPY app .
