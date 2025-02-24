@@ -13,16 +13,12 @@ if TYPE_CHECKING:
     from .order_item import OrderItem
 
 
-class OrderStatus(Enum):
-    IN_PROGRESS = "in progress"
-    SENT = "sent"
-    DELIVERED = "delivered"
-
-
 class Order(Base, IdIntPkMixin):
     __tablename__ = "orders"
 
-    status: Mapped[OrderStatus] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(
+        nullable=False, default="in_process", server_default="in_process"
+    )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),
         default=datetime.utcnow(),

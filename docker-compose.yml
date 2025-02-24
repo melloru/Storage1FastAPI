@@ -7,7 +7,7 @@ services:
     depends_on:
       - db
     environment:
-      DB_URL: postgresql+asyncpg://postgres:password@db:5432/mydatabase
+      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/mydatabase
     ports:
       - "8000:7000"
     volumes:
@@ -16,7 +16,7 @@ services:
     image: postgres
     container_name: postgres_db
     environment:
-      POSTGRES_USER: user
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydatabase
   pgadmin:
