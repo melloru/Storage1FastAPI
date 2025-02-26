@@ -1,2 +1,7 @@
-from .product import ProductService, get_product_service
-from .order import OrderService, get_order_service
+__all__ = (
+    "OrderService",
+    "ProductService",
+)
+
+from .order import OrderService
+from .product import ProductService

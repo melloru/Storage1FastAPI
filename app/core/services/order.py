@@ -1,101 +1,56 @@
-from typing import Sequence, Annotated
+from typing import TYPE_CHECKING, Sequence
 
-from fastapi.params import Depends
-from sqlalchemy.exc import IntegrityError
+from core.schemas import OrderItemBaseS
 
-from core.exceptions import NotEnoughProductInStock
-from core.repositories import OrderRepository, BaseRepository, ProductRepository
-from core.repositories.order import get_order_repository
-from core.repositories.product import get_product_repository
-from core.models import Order, OrderItem, Product
-from core.schemas.order import OrderItemCreateS
-from core.uow import unit_of_work
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from core.models import Order
+    from core.schemas import OrderBaseS, OrderItemBaseS
+
+from core.repositories import OrderRepository, ProductRepository
+from core.exceptions import OrderNotFoundError
 
 
 class OrderService:
-    def __init__(
-        self,
-        repository: OrderRepository,
-        product_repository: ProductRepository,
-    ):
-        self.repository = repository
-        self.product_repository = product_repository
+    _order_repository = OrderRepository
+    _product_repository = ProductRepository
 
-    async def get_all(self) -> Sequence[Order]:
-        return await self.repository.get_all()
+    @classmethod
+    async def get_all(cls, session: "AsyncSession") -> Sequence["Order"]:
+        return await cls._order_repository.get_all(session)
 
-    async def create(self, order_items: OrderItemCreateS):
-        with unit_of_work() as uow:
-            self.product_repository.session = uow.session
-            cart_products = [
-                (
-                    await self.product_repository.get_by_id(product.product_id),
-                    product.quantity,
-                )
-                for product in order_items.products_details
-            ]
+    @classmethod
+    async def get_by_id(cls, session: "AsyncSession", order_id: int) -> "Order":
+        order = await cls._order_repository.get_by_id(session, order_id)
+        if order is None:
+            raise OrderNotFoundError(f"Заказ с ID: {order_id} не найден.")
+        return order
 
-            new_order = await self.repository.create(cart_products)
-            return new_order
+    @classmethod
+    async def get_info(cls, session: "AsyncSession", order_id: int) -> "Order":
+        order_info = await cls._order_repository.get_info(session, order_id)
+        if order_info is None:
+            raise OrderNotFoundError(f"Заказ с ID: {order_id} не найден.")
+        return order_info
 
-    async def add_product_to_order(self, order: Order, product: Product, quantity: int):
-        if product.quantity_in_storage < quantity:
-            raise NotEnoughProductInStock(
-                f"Not enough stock for product {product.name}. "
-                f"Available: {product.quantity_in_storage}, Requested: {quantity}."
-            )
+    @classmethod
+    async def create(
+        cls,
+        session: "AsyncSession",
+        items_data: Sequence["OrderItemBaseS"],
+    ) -> "Order":
+        items = [item.model_dump() for item in items_data]
+        return await cls._order_repository.create(session, items)
 
-        order_item = OrderItem(order=order, product=product, quantity_in_order=quantity)
-        order.products_details.append(order_item)
-
-        product.quantity_in_storage -= quantity
-
-    # async def create(self, order_items: OrderItemCreateS):
-    #     cart_products = [
-    #         (
-    #             await self.product_repository.get_by_id(product.product_id),
-    #             product.quantity,
-    #         )
-    #         for product in order_items.products_details
-    #     ]
-    #
-    #     new_order = await self.repository.create(cart_products)
-    #     return new_order
-
-    # async def create(self, order_items: OrderItemCreateS):
-    #     new_order = Order()
-    #
-    #     for cart_product in order_items.products_details:
-    #         product = await self.product_repository.get_by_id(cart_product.product_id)
-    #         await self.add_product_to_order(new_order, product, cart_product.quantity)
-    #     try:
-    #         await self.repository.create(new_order)
-    #     except IntegrityError:
-    #         raise ValueError("Failed to create order due to integrity error.")
-    #
-    #     return new_order
-
-    # async def check_quantity(self, product_id: int, quantity: int) -> bool:
-    #     product = await self.product_repository.get_product(product_id)
-    #     return product.stock >= quantity
-
-    async def add_product_to_order(self, order: Order, product: Product, quantity: int):
-        if product.quantity_in_storage < quantity:
-            raise IntegrityError(
-                f"Not enough stock for product {product.name}. "
-                f"Available: {product.quantity_in_storage}, Requested: {quantity}."
-            )
-        order_item = OrderItem(order=order, product=product, quantity_in_order=quantity)
-        order.products_details.append(order_item)
-
-        product.quantity_in_storage -= quantity
-
-
-def get_order_service(
-    repository: Annotated["OrderRepository", Depends(get_order_repository)],
-    product_repository: Annotated["ProductRepository", Depends(get_product_repository)],
-) -> OrderService:
-    return OrderService(
-        repository=repository,
-        product_repository=product_repository,
-    )
+    @classmethod
+    async def update(
+        cls,
+        session: "AsyncSession",
+        order: "Order",
+        changes: "OrderBaseS",
+    ) -> "Order":
+        modified_order = await cls._order_repository.update(
+            session, order, changes, partial=True
+        )
+        return modified_order

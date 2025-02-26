@@ -1,6 +1,18 @@
-class UnitOfWorkError(Exception):
+class OrderNotFoundError(Exception):
     pass
 
 
-class NotEnoughProductInStock(Exception):
+class NotEnoughProductInStockError(Exception):
+    pass
+
+
+class ProductNotFoundError(Exception):
+    pass
+
+
+class ProductAlreadyExistsError(Exception):
+    pass
+
+
+class ProductInOrderError(Exception):
     pass

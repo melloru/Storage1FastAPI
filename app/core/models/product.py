@@ -1,19 +1,18 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy.orm import Mapped, relationship
+if TYPE_CHECKING:
+    from .order_item import OrderItem
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 from .mixins import IdIntPkMixin
 
 
-if TYPE_CHECKING:
-    from .order_item import OrderItem
-
-
 class Product(Base, IdIntPkMixin):
     __tablename__ = "products"
 
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(unique=True, index=True)
     description: Mapped[str]
     price: Mapped[int]
     quantity_in_storage: Mapped[int]

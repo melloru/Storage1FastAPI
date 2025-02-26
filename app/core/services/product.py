@@ -1,54 +1,75 @@
-from typing import TYPE_CHECKING, Annotated, Sequence
-
-from fastapi import Depends
-
-from core.repositories.product import get_product_repository
-from core.schemas import ProductCreateS, ProductUpdatePartialS, ProductS, ProductUpdateS
-from core.models import Product
+from typing import TYPE_CHECKING, Sequence
 
 if TYPE_CHECKING:
-    from core.repositories import ProductRepository
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from core.models import Product
+    from core.schemas import ProductCreateS, ProductUpdatePartialS, ProductUpdateS
+
+from sqlalchemy.exc import IntegrityError
+
+from core.repositories import ProductRepository
+from core.exceptions import (
+    ProductNotFoundError,
+    ProductAlreadyExistsError,
+    ProductInOrderError,
+)
 
 
 class ProductService:
-    def __init__(self, repository: "ProductRepository"):
-        self.repository = repository
+    _product_repository = ProductRepository
 
-    async def get_all(self) -> Sequence[Product]:
-        return await self.repository.get_all()
+    @classmethod
+    async def get_all(cls, session: "AsyncSession") -> Sequence["Product"]:
+        return await cls._product_repository.get_all(session)
 
-    async def get_by_id(self, product_id: int) -> Product:
-        return await self.repository.get_by_id(product_id)
+    @classmethod
+    async def get_by_id(cls, session: "AsyncSession", product_id: int) -> "Product":
+        product = await cls._product_repository.get_by_id(session, product_id)
+        if product is None:
+            raise ProductNotFoundError(f"Товар с ID: {product_id} не найден.")
+        return product
 
-    async def create(self, product: ProductCreateS) -> Product:
-        return await self.repository.create(product)
+    @classmethod
+    async def create(
+        cls, session: "AsyncSession", product: "ProductCreateS"
+    ) -> "Product":
+        try:
+            return await cls._product_repository.create(session, product)
+        except IntegrityError:
+            raise ProductAlreadyExistsError(
+                f"Товар с именем: '{product.name}' уже существует."
+            )
 
-    async def delete(self, product: Product):
-        await self.repository.delete(exemplar=product)
+    @classmethod
+    async def delete(cls, session: "AsyncSession", product: "Product"):
+        try:
+            await cls._product_repository.delete(session, product)
+        except IntegrityError:  # Переделать
+            raise ProductInOrderError(f"Продукт есть в каком-то заказе.")
 
+    @classmethod
     async def update(
-        self,
-        product: Product,
-        updated_product: ProductUpdateS,
-    ) -> Product:
-        return await self.repository.update(
-            exemplar=product,
-            updated_exemplar=updated_product,
-        )
+        cls,
+        session: "AsyncSession",
+        product: "Product",
+        changes: "ProductUpdateS",
+    ) -> "Product":
+        try:
+            return await cls._product_repository.update(session, product, changes)
+        except IntegrityError:
+            raise ProductAlreadyExistsError(
+                f"Товар с именем: '{changes.name}' уже существует."
+            )
 
+    @classmethod
     async def update_partial(
-        self,
-        product: Product,
-        updated_product: ProductUpdatePartialS,
-    ) -> Product:
-        return await self.repository.update(
-            exemplar=product,
-            updated_exemplar=updated_product,
-            partial=True,
+        cls,
+        session: "AsyncSession",
+        product: "Product",
+        changes: "ProductUpdatePartialS",
+    ) -> "Product":
+        modified_product = await cls._product_repository.update(
+            session, product, changes, partial=True
         )
-
-
-def get_product_service(
-    repository: Annotated["ProductRepository", Depends(get_product_repository)],
-) -> ProductService:
-    return ProductService(repository=repository)
+        return modified_product

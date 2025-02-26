@@ -1,5 +1,8 @@
-from enum import Enum
 from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .order_item import OrderItem
+
 from datetime import datetime
 
 from sqlalchemy import func
@@ -7,10 +10,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 from .mixins import IdIntPkMixin
-
-
-if TYPE_CHECKING:
-    from .order_item import OrderItem
 
 
 class Order(Base, IdIntPkMixin):
